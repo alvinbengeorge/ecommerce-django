@@ -42,9 +42,7 @@ export default function CartPage() {
                 }))
             };
 
-            const res = await api.post('/orders/', payload, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await api.post('/orders/', payload);
 
             console.log("Order created", res.data);
             clearCart();

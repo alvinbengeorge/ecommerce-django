@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ShoppingBag } from 'lucide-react';
+import { ShoppingBag, Minus, Plus } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
 interface Product {
@@ -14,11 +14,20 @@ interface Product {
 }
 
 export default function ProductCard({ product }: { product: Product }) {
-    const { addToCart } = useCart();
+    const { addToCart, decrementItem, items } = useCart();
+
+    // Find current quantity in cart
+    const cartItem = items.find(i => i.id === product.id);
+    const quantity = cartItem ? cartItem.quantity : 0;
 
     const handleAddToCart = (e: React.MouseEvent) => {
-        e.preventDefault(); // Prevent navigation if wrapped in Link (though button is separate here)
+        e.preventDefault();
         addToCart(product);
+    };
+
+    const handleDecrement = (e: React.MouseEvent) => {
+        e.preventDefault();
+        decrementItem(product.id);
     };
 
     return (
@@ -47,12 +56,31 @@ export default function ProductCard({ product }: { product: Product }) {
                     {product.description || "No description available for this premium product."}
                 </p>
 
-                <button
-                    onClick={handleAddToCart}
-                    className="w-full bg-black text-white py-2.5 rounded-xl font-medium text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 group-active:scale-[0.98]">
-                    <ShoppingBag className="w-4 h-4" />
-                    Add to Cart
-                </button>
+                {quantity > 0 ? (
+                    <div className="w-full bg-black text-white py-2 rounded-xl font-medium text-sm flex items-center justify-between px-4 transition-all duration-300 shadow-md transform hover:scale-[1.02]">
+                        <button
+                            onClick={handleDecrement}
+                            className="p-1 hover:bg-gray-800 rounded-md transition-colors active:scale-95"
+                        >
+                            <Minus className="w-4 h-4" />
+                        </button>
+                        <span className="font-bold text-base min-w-[20px] text-center">{quantity}</span>
+                        <button
+                            onClick={handleAddToCart}
+                            className="p-1 hover:bg-gray-800 rounded-md transition-colors active:scale-95"
+                            disabled={product.stock <= quantity}
+                        >
+                            <Plus className="w-4 h-4" />
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        onClick={handleAddToCart}
+                        className="w-full bg-black text-white py-2.5 rounded-xl font-medium text-sm hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 group-active:scale-[0.98]">
+                        <ShoppingBag className="w-4 h-4" />
+                        Add to Cart
+                    </button>
+                )}
             </div>
         </div>
     );
