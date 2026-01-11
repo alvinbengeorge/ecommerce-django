@@ -4,7 +4,6 @@ from django.contrib.auth.models import AbstractUser
 
 class Tenant(models.Model):
     name = models.CharField(max_length=100)
-    subdomain = models.CharField(max_length=100, unique=True)
     domain_url = models.URLField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -29,6 +28,8 @@ class Product(models.Model):
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     stock = models.IntegerField(default=0)
+    category = models.CharField(max_length=100, blank=True)
+    image = models.ImageField(upload_to='products/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

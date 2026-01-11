@@ -1,13 +1,14 @@
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import MyTokenObtainPairView, RegisterView, ProductViewSet, OrderViewSet, TenantViewSet
+from .views import MyTokenObtainPairView, RegisterView, ProductViewSet, OrderViewSet, TenantViewSet, UserViewSet
 from rest_framework_simplejwt.views import TokenRefreshView
 
 router = DefaultRouter()
 router.register(r'products', ProductViewSet, basename='product')
 router.register(r'orders', OrderViewSet, basename='order')
 router.register(r'tenants', TenantViewSet, basename='tenant')
+router.register(r'users', UserViewSet, basename='user')
 
 urlpatterns = [
     path('', include(router.urls)),
