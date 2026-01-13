@@ -16,7 +16,6 @@ import dj_database_url
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-# Load environment variables from .env file
 load_dotenv(os.path.join(Path(__file__).resolve().parent.parent, '.env'))
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -30,6 +29,8 @@ SECRET_KEY = os.getenv("SECRET", "django-insecure-fallback-dev-key")
 DEBUG = os.getenv("DEBUG", "True") == "True"
 
 ALLOWED_HOSTS = ["*"]
+
+CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:8000").split(",")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -51,7 +52,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
-    # "django.middleware.csrf.CsrfViewMiddleware", # Disabled for Cloud Run deployment simplicity
+    "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -97,6 +98,10 @@ DATABASES = {
 
 if os.getenv('DATABASE_URI'):
     DATABASES['default'] = dj_database_url.parse(os.getenv('DATABASE_URI'))
+
+# Fail fast in production if using SQLite
+if not DEBUG and DATABASES['default']['ENGINE'] == 'django.db.backends.sqlite3':
+    raise ValueError("CRITICAL: Running in production (DEBUG=False) with SQLite. DATABASE_URI or DATABASE_URL is missing!")
 
 
 # Password validation
