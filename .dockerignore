@@ -1,0 +1,29 @@
+
+# Frontend directory
+frontend/
+
+# Local Environment variables
+.env
+
+# Virtual Environment
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Git
+.git/
+
+# API Tests
+api_tests/
+test_auth.py
+inspect_db.py
+seed_users.py
+debug_*.py
+
+# Service Account Key (Do not bake secrets into the image)
+service-account-key.json
+
+# Markdowns
+*.md

@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+echo "Applying database migrations..."
+python manage.py makemigrations
+python manage.py migrate
+
+echo "Collecting static files..."
+python manage.py collectstatic --noinput
+
+echo "Starting server..."
+exec uvicorn config.asgi:application --host 0.0.0.0 --port 8000
