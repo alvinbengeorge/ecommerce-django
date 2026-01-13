@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ShoppingBag, Minus, Plus } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 
@@ -11,6 +12,7 @@ interface Product {
     price: string;
     stock: number;
     tenant: number;
+    image?: string | null;
 }
 
 export default function ProductCard({ product }: { product: Product }) {
@@ -32,11 +34,24 @@ export default function ProductCard({ product }: { product: Product }) {
 
     return (
         <div className="group relative bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-xl transition-all duration-300">
-            {/* Image Placeholder */}
+            {/* Image Section */}
             <Link href={`/products/${product.id}`} className="block">
                 <div className="aspect-[4/3] bg-gray-100 relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-tr from-gray-100 to-gray-50 group-hover:scale-105 transition-transform duration-500" />
-                    <div className="absolute top-3 left-3 bg-black text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider shadow-sm">
+                    {product.image ? (
+                        <Image
+                            src={product.image}
+                            alt={product.name}
+                            fill
+                            className="object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                    ) : (
+                        <div className="absolute inset-0 bg-gradient-to-tr from-gray-100 to-gray-50 group-hover:scale-105 transition-transform duration-500">
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-4xl font-bold text-gray-200 uppercase">{product.name.slice(0, 2)}</span>
+                            </div>
+                        </div>
+                    )}
+                    <div className="absolute top-3 left-3 bg-black text-white text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider shadow-sm z-10">
                         {product.stock} remaining
                     </div>
                 </div>

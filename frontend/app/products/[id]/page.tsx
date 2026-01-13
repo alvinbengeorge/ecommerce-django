@@ -6,6 +6,8 @@ import Navbar from '@/components/Navbar';
 import { Loader2, ShoppingCart, Truck, ShieldCheck, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
+import { useAuth } from '@/context/AuthContext';
+import Image from 'next/image';
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
     const resolvedParams = use(params);
@@ -13,6 +15,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     const [product, setProduct] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const { addToCart } = useCart();
+    const { user } = useAuth();
     const [added, setAdded] = useState(false);
 
     useEffect(() => {
@@ -35,6 +38,8 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         setAdded(true);
         setTimeout(() => setAdded(false), 2000);
     };
+
+    const isOwner = user?.role === 'OWNER';
 
     if (loading) {
         return (
@@ -62,13 +67,26 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
 
                 <div className="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden lg:flex">
                     {/* Image Section */}
-                    <div className="lg:w-1/2 bg-gray-100 min-h-[500px] relative group">
-                        <div className="absolute inset-0 bg-gradient-to-tr from-gray-100 to-gray-50" />
-                        <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="text-6xl font-bold text-gray-200 uppercase tracking-widest select-none">
-                                {product.name.slice(0, 2)}
+                    <div className="lg:w-1/2 bg-gray-100 min-h-[500px] relative group overflow-hidden">
+                        {product.image ? (
+                            <div className="relative w-full h-full min-h-[500px]">
+                                <Image
+                                    src={product.image}
+                                    alt={product.name}
+                                    fill
+                                    className="object-cover"
+                                />
                             </div>
-                        </div>
+                        ) : (
+                            <>
+                                <div className="absolute inset-0 bg-gradient-to-tr from-gray-100 to-gray-50" />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <div className="text-6xl font-bold text-gray-200 uppercase tracking-widest select-none">
+                                        {product.name.slice(0, 2)}
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* Details Section */}
@@ -91,17 +109,23 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                         </div>
 
                         <div className="flex flex-col gap-4">
-                            <button
-                                onClick={handleAddToCart}
-                                disabled={product.stock <= 0}
-                                className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all duration-300 ${added
+                            {!isOwner ? (
+                                <button
+                                    onClick={handleAddToCart}
+                                    disabled={product.stock <= 0}
+                                    className={`w-full py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 transition-all duration-300 ${added
                                         ? 'bg-green-500 text-white'
                                         : 'bg-black text-white hover:bg-gray-800 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed'
-                                    }`}
-                            >
-                                <ShoppingCart className="w-5 h-5" />
-                                {added ? 'Added to Cart!' : 'Add to Cart'}
-                            </button>
+                                        }`}
+                                >
+                                    <ShoppingCart className="w-5 h-5" />
+                                    {added ? 'Added to Cart!' : 'Add to Cart'}
+                                </button>
+                            ) : (
+                                <div className="w-full py-4 rounded-xl bg-gray-100 text-gray-500 font-bold text-center border border-gray-200">
+                                    Store Owners cannot purchase items
+                                </div>
+                            )}
 
                             <div className="grid grid-cols-2 gap-4 mt-4">
                                 <div className="flex items-center justify-center gap-2 py-3 bg-gray-50 rounded-xl text-sm font-medium text-gray-600">

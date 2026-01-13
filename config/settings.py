@@ -11,6 +11,12 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 from pathlib import Path
+import os
+import dj_database_url
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-3q+bk=pw!7(u!_2&x#gqbj7@y5av=yw-4@e%j*hrg7)y4t^=ep"
+SECRET_KEY = os.getenv("SECRET", "django-insecure-fallback-dev-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -53,6 +59,8 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "store.middleware.CustomAuthMiddleware",
+    "store.middleware.TenantMiddleware",
 ]
 
 CORS_ALLOW_ALL_ORIGINS = True
@@ -80,12 +88,19 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+# Database
+# https://docs.djangoproject.com/en/6.0/ref/settings/#databases
+
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": dj_database_url.config(
+        default="sqlite:///" + str(BASE_DIR / "db.sqlite3"),
+        conn_max_age=600,
+        ssl_require=False
+    )
 }
+
+if os.getenv('DATABASE_URI'):
+    DATABASES['default'] = dj_database_url.parse(os.getenv('DATABASE_URI'))
 
 
 # Password validation
@@ -122,31 +137,31 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/6.0/howto/static-files/
+
 STATIC_URL = "static/"
-AUTH_USER_MODEL = 'store.User'
+
+# Media Files - Google Cloud Storage
+GS_BUCKET_NAME = os.getenv("GS_BUCKET_NAME", "ecommerce-asset-storage")
+STORAGES = {
+    "default": {
+        "BACKEND": "storages.backends.gcloud.GoogleCloudStorage",
+        "OPTIONS": {
+            "bucket_name": GS_BUCKET_NAME,
+            "default_acl": None, # Explicitly disable ACLs for Uniform Bucket-Level Access
+        },
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
+MEDIA_URL = f"https://storage.googleapis.com/{GS_BUCKET_NAME}/"
+
+# Custom Auth - Manual Implementation
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    ),
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'E-commerce Platform API',
-    'DESCRIPTION': 'API documentation for Multi-Tenant E-commerce Platform',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_REQUEST': True,
-}
-
-from datetime import timedelta
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-}
-
-
-import os
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'

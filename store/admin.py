@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Tenant, User, Product, Order, OrderItem
+from .models import Tenant, StoreUser, Product, Order, OrderItem
 
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
@@ -14,5 +14,5 @@ class OrderAdmin(admin.ModelAdmin):
     search_fields = ('customer__username', 'tenant__name')
 
 admin.site.register(Tenant)
-admin.site.register(User)
+admin.site.register(StoreUser)
 admin.site.register(OrderItem)

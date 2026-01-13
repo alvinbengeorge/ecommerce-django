@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import Navbar from '../components/Navbar';
 import ProductCard from '../components/ProductCard';
 import api from '../lib/api';
@@ -42,12 +43,12 @@ export default function Home() {
               Explore a curated marketplace of premium goods from independent vendors globally.
             </p>
             <div className="flex gap-4">
-              <button className="bg-white text-black px-8 py-3.5 rounded-full font-bold text-sm hover:bg-gray-100 transition-colors flex items-center gap-2">
+              <Link href="/marketplace" className="bg-white text-black px-8 py-3.5 rounded-full font-bold text-sm hover:bg-gray-100 transition-colors flex items-center gap-2">
                 Start Exploring <ArrowRight className="w-4 h-4" />
-              </button>
-              <button className="px-8 py-3.5 rounded-full font-bold text-sm border border-gray-600 hover:bg-gray-900 transition-colors text-white">
+              </Link>
+              <Link href="/login" className="px-8 py-3.5 rounded-full font-bold text-sm border border-gray-600 hover:bg-gray-900 transition-colors text-white inline-flex items-center justify-center">
                 Become a Seller
-              </button>
+              </Link>
             </div>
           </div>
 
@@ -64,9 +65,9 @@ export default function Home() {
             <h2 className="text-2xl font-bold text-gray-900">Featured Drops</h2>
             <p className="text-gray-500 mt-1">New arrivals from verified vendors</p>
           </div>
-          <button className="text-sm font-medium text-gray-900 border-b border-gray-200 hover:border-black transition-colors pb-1">
+          <Link href="/marketplace" className="text-sm font-medium text-gray-900 border-b border-gray-200 hover:border-black transition-colors pb-1">
             View All
-          </button>
+          </Link>
         </div>
 
         {loading ? (

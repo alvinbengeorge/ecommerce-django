@@ -1,17 +1,6 @@
-
 from rest_framework import serializers
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import Tenant, User, Product, Order, OrderItem
-
-class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
-    @classmethod
-    def get_token(cls, user):
-        token = super().get_token(user)
-        # Add custom claims
-        token['tenant_id'] = user.tenant.id if user.tenant else None
-        token['role'] = user.role
-        token['tenant_name'] = user.tenant.name if user.tenant else None
-        return token
+from .models import Tenant, StoreUser, Product, Order, OrderItem
+from .authentication import hash_pass
 
 class TenantSerializer(serializers.ModelSerializer):
     class Meta:
@@ -20,23 +9,24 @@ class TenantSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
-        model = User
+        model = StoreUser
         fields = ('id', 'username', 'email', 'role', 'tenant')
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
     
     class Meta:
-        model = User
+        model = StoreUser
         fields = ('username', 'password', 'email', 'role', 'tenant')
 
     def create(self, validated_data):
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data.get('email', ''),
-            password=validated_data['password'],
-            role=validated_data.get('role', 'CUSTOMER'),
-            tenant=validated_data.get('tenant')
+        # Manual password hashing
+        password = validated_data.pop('password')
+        hashed = hash_pass(password)
+        
+        user = StoreUser.objects.create(
+            password=hashed,
+            **validated_data
         )
         return user
 

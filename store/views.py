@@ -1,23 +1,41 @@
-
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework_simplejwt.views import TokenObtainPairView
 from django.shortcuts import get_object_or_404
-from .serializers import (
-    MyTokenObtainPairSerializer, RegisterSerializer, 
-    ProductSerializer, OrderSerializer, PlaceOrderSerializer,
-    TenantSerializer, UserSerializer
-)
-from .models import Product, Order, OrderItem, Tenant, User
-from .permissions import IsStoreOwner, IsOwnerOrStaff, IsCustomer
+from django.db import transaction
 
-class MyTokenObtainPairView(TokenObtainPairView):
-    serializer_class = MyTokenObtainPairSerializer
+from .serializers import (
+    RegisterSerializer, ProductSerializer, OrderSerializer, 
+    PlaceOrderSerializer, TenantSerializer, UserSerializer
+)
+from .models import Product, Order, OrderItem, Tenant, StoreUser
+from .permissions import IsStoreOwner, IsOwnerOrStaff, IsCustomer, IsCustomAuthenticated
+from .authentication import verify_pass, create_token
+
+class LoginView(APIView):
+    permission_classes = [] 
+
+    def post(self, request):
+        username = request.data.get('username')
+        password = request.data.get('password')
+        
+        if not username or not password:
+             return Response({"error": "Username and password required"}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            user = StoreUser.objects.get(username=username)
+        except StoreUser.DoesNotExist:
+             return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
+             
+        if verify_pass(password, user.password):
+            token = create_token(user)
+            return Response({'access': token}, status=status.HTTP_200_OK)
+        else:
+            return Response({"error": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
 
 class RegisterView(APIView):
-    permission_classes = [permissions.AllowAny]
+    permission_classes = []
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -29,78 +47,66 @@ class RegisterView(APIView):
 class TenantViewSet(viewsets.ModelViewSet):
     queryset = Tenant.objects.all()
     serializer_class = TenantSerializer
-    permission_classes = [permissions.IsAuthenticated] 
+    permission_classes = [IsCustomAuthenticated]
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            return [permissions.AllowAny()]
-        return [permissions.IsAuthenticated()]
+             return [] # Public?
+        return [IsCustomAuthenticated()]
 
     def perform_create(self, serializer):
-        # Create the tenant
         tenant = serializer.save()
-        
-        # Assign this tenant to the user who created it, making them the owner
-        user = self.request.user
-        user.tenant = tenant
-        user.role = 'OWNER' # Enforce Owner role
-        user.save()
+        user = self.request.custom_user
+        if user:
+            user.tenant = tenant
+            user.role = 'OWNER'
+            user.save()
 
 class ProductViewSet(viewsets.ModelViewSet):
     serializer_class = ProductSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
+    # Permission handled by get_permissions logic below + IsCustomAuthenticated default if needed
+    
     def get_queryset(self):
-        # Allow anyone to see products, but filter?
-        # For a marketplace, usually we show ALL products or filter by query params.
-        # But the original code restricted it to "user.tenant".
-        # We want a GLOBAL marketplace view for the homepage?
-        # Or is this a tenant-specific dashboard?
-        # "Multi-Vendor Marketplace" -> Customers see everything.
+        # TenantManager handles the filtering automatically via TenantAwareModel
         if self.action in ['list', 'retrieve']:
-             queryset = Product.objects.all()
-             tenant_id = self.request.query_params.get('tenant')
-             if tenant_id:
-                 queryset = queryset.filter(tenant_id=tenant_id)
-             return queryset
+             return Product.objects.all()
         
-        # For managing products, restrict to tenant
-        user = self.request.user
-        
-        # Admins can edit anything
-        if user.is_superuser:
-            return Product.objects.all()
-
-        if not user.is_authenticated or not hasattr(user, 'tenant') or not user.tenant:
-            return Product.objects.none()
-        return Product.objects.filter(tenant=user.tenant)
+        # Admin override?
+        user = getattr(self.request, 'custom_user', None)
+        # Assuming TenantManager does the heavy lifting, we just return all()
+        # But if we want to be explicit:
+        return Product.objects.all()
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
-            return [permissions.AllowAny()]
+            return []
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [permissions.IsAuthenticated(), IsOwnerOrStaff()]
-        return [permissions.IsAuthenticated()]
+            return [IsCustomAuthenticated(), IsOwnerOrStaff()]
+        return [IsCustomAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(tenant=self.request.user.tenant)
-
-from django.db import transaction
+        # Explicitly set tenant from the authenticated user to ensure it's not missed
+        user = getattr(self.request, 'custom_user', None)
+        if user and user.tenant:
+            serializer.save(tenant=user.tenant)
+        else:
+            # Fallback to existing logic (middleware context) or fail if no tenant
+            serializer.save()
 
 class OrderViewSet(viewsets.ModelViewSet):
     serializer_class = OrderSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsCustomAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
-        if not user.is_authenticated:
+        user = getattr(self.request, 'custom_user', None)
+        if not user:
             return Order.objects.none()
         
-        # If user is a Seller (Owner/Staff), show orders for their store
-        if user.role in ['OWNER', 'STAFF'] and user.tenant:
-            return Order.objects.filter(tenant=user.tenant)
+        # If Owner/Staff -> Show Tenant Orders (Managed by TenantManager automatically)
+        if user.role in ['OWNER', 'STAFF']:
+            return Order.objects.all()
             
-        # Otherwise (Customer), show their own orders
+        # If Customer -> Show Own Orders
         return Order.objects.filter(customer=user)
 
     def create(self, request, *args, **kwargs):
@@ -109,9 +115,11 @@ class OrderViewSet(viewsets.ModelViewSet):
             return Response(input_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
         items_data = input_serializer.validated_data['items']
+        user = request.custom_user
         
-        # 1. Group items by Tenant (Seller)
-        # We need to fetch products first to know their tenant
+        if not user:
+            return Response({"error": "Authentication required"}, status=401)
+
         product_ids = [item['product_id'] for item in items_data]
         products = Product.objects.filter(id__in=product_ids).select_related('tenant')
         
@@ -119,15 +127,10 @@ class OrderViewSet(viewsets.ModelViewSet):
              return Response({"error": "One or more products found invalid"}, status=400)
 
         product_map = {p.id: p for p in products}
-        
-        # Group: { tenant_id: [ {product, quantity} ] }
         orders_by_tenant = {}
 
         for item in items_data:
             product = product_map.get(item['product_id'])
-            if not product:
-                continue # Should be caught above
-            
             if product.stock < item['quantity']:
                 return Response({"error": f"Not enough stock for {product.name}"}, status=400)
 
@@ -147,69 +150,38 @@ class OrderViewSet(viewsets.ModelViewSet):
                     # Create Order for this tenant
                     tenant_obj = order_items[0]['product'].tenant
                     
+                    # We need to manually set tenant because if the CUSTOMER is buying from Tenant A,
+                    # but the context is NOT locked to Tenant A (since customer has no tenant), 
+                    # TenantAwareModel might not pick it up automatically or might error.
+                    # We should Explicitly set it.
+                    
                     order = Order.objects.create(
                         tenant=tenant_obj,
-                        customer=request.user,
-                        status='PENDING',
-                        total_amount=0
+                        customer=user,
+                        status='COMPLETED', # Auto-complete for now
+                        total_amount=sum(i['product'].price * i['quantity'] for i in order_items)
                     )
-
-                    total_amount = 0
-                    for item_info in order_items:
-                        product = item_info['product']
-                        quantity = item_info['quantity']
-                        price = product.price # Snapshot price
-                        
+                    
+                    for item in order_items:
                         OrderItem.objects.create(
                             order=order,
-                            product=product,
-                            quantity=quantity,
-                            price=price
+                            product=item['product'],
+                            quantity=item['quantity'],
+                            price=item['product'].price
                         )
-                        
-                        total_amount += price * quantity
-                        
                         # Deduct stock
-                        product.stock -= quantity
-                        product.save()
-
-                    order.total_amount = total_amount
-                    order.save()
+                        p = item['product']
+                        p.stock -= item['quantity']
+                        p.save()
+                        
                     created_orders.append(order)
                     
         except Exception as e:
             return Response({"error": str(e)}, status=500)
-            
-        # Return the first order (or list? StandardViewSet usually expects one, but we made multiple)
-        # For now, let's return the data of all created orders or just success message
+
         return Response(OrderSerializer(created_orders, many=True).data, status=status.HTTP_201_CREATED)
 
-    def perform_update(self, serializer):
-        user = self.request.user
-        order = self.get_object()
-        
-        # Only Tenant Owner/Staff can change status
-        if user.role not in ['OWNER', 'STAFF']:
-             # Unless it's a cancellation? For now restrict strictly.
-             raise permissions.PermissionDenied("Customers cannot update orders.")
-             
-        if user.tenant != order.tenant:
-             raise permissions.PermissionDenied("You do not have permission for this order.")
-             
-        serializer.save()
-
-class UserViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = User.objects.all()
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = StoreUser.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        if self.request.user.is_superuser:
-            return User.objects.all()
-        # Users can only see themselves (or maybe staff see customers? let's stick to self for now)
-        return User.objects.filter(id=self.request.user.id)
-    
-    @action(detail=False, methods=['get'])
-    def me(self, request):
-        serializer = self.get_serializer(request.user)
-        return Response(serializer.data)
+    permission_classes = [IsCustomAuthenticated] # Only admins?

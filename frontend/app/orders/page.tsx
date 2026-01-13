@@ -59,7 +59,8 @@ export default function OrdersPage() {
         switch (status) {
             case 'PENDING': return <Clock className="w-5 h-5 text-orange-500" />;
             case 'SHIPPED': return <Truck className="w-5 h-5 text-blue-500" />;
-            case 'DELIVERED': return <CheckCircle className="w-5 h-5 text-green-500" />;
+            case 'DELIVERED':
+            case 'COMPLETED': return <CheckCircle className="w-5 h-5 text-green-500" />;
             default: return <Package className="w-5 h-5 text-gray-500" />;
         }
     };
@@ -68,7 +69,8 @@ export default function OrdersPage() {
         switch (status) {
             case 'PENDING': return 'bg-orange-50 text-orange-700 border-orange-100';
             case 'SHIPPED': return 'bg-blue-50 text-blue-700 border-blue-100';
-            case 'DELIVERED': return 'bg-green-50 text-green-700 border-green-100';
+            case 'DELIVERED':
+            case 'COMPLETED': return 'bg-green-50 text-green-700 border-green-100';
             default: return 'bg-gray-50 text-gray-700 border-gray-100';
         }
     };

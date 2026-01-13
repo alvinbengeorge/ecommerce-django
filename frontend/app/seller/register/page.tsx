@@ -11,12 +11,14 @@ export default function RegisterSellerPage() {
         password: '',
         storeName: '',
     });
+    const [errors, setErrors] = useState<Record<string, string[]>>({});
     const [loading, setLoading] = useState(false);
     const router = useRouter();
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
+        setErrors({}); // Clear previous errors
 
         try {
             // 1. Register User
@@ -46,9 +48,14 @@ export default function RegisterSellerPage() {
 
             router.push('/seller/dashboard');
 
-        } catch (error) {
+        } catch (error: any) {
             console.error(error);
-            alert('Registration failed. Username or Subdomain might be taken.');
+            if (error.response && error.response.status === 400) {
+                // Validation errors from backend
+                setErrors(error.response.data);
+            } else {
+                alert('Registration failed. Please try again.');
+            }
         } finally {
             setLoading(false);
         }
@@ -66,20 +73,23 @@ export default function RegisterSellerPage() {
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Username</label>
-                            <input required type="text" className="mt-1 w-full px-4 py-2 border rounded-lg"
+                            <input required type="text" className={`mt-1 w-full px-4 py-2 border rounded-lg ${errors.username ? 'border-red-500' : ''}`}
                                 value={formData.username} onChange={e => setFormData({ ...formData, username: e.target.value })} />
+                            {errors.username && <p className="text-red-500 text-xs mt-1">{errors.username[0]}</p>}
                         </div>
                         <div>
                             <label className="block text-sm font-medium text-gray-700">Email</label>
-                            <input required type="email" className="mt-1 w-full px-4 py-2 border rounded-lg"
+                            <input required type="email" className={`mt-1 w-full px-4 py-2 border rounded-lg ${errors.email ? 'border-red-500' : ''}`}
                                 value={formData.email} onChange={e => setFormData({ ...formData, email: e.target.value })} />
+                            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email[0]}</p>}
                         </div>
                     </div>
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700">Password</label>
-                        <input required type="password" className="mt-1 w-full px-4 py-2 border rounded-lg"
+                        <input required type="password" className={`mt-1 w-full px-4 py-2 border rounded-lg ${errors.password ? 'border-red-500' : ''}`}
                             value={formData.password} onChange={e => setFormData({ ...formData, password: e.target.value })} />
+                        {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password[0]}</p>}
                     </div>
 
                     <div className="border-t border-gray-100 pt-6">
