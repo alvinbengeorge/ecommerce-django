@@ -22,7 +22,7 @@ class TenantAwareModel(models.Model):
     tenant = models.ForeignKey('store.Tenant', on_delete=models.CASCADE)
     
     objects = TenantManager()
-    all_objects = models.Manager() # Access to everything if needed
+    all_objects = models.Manager()
 
     class Meta:
         abstract = True
